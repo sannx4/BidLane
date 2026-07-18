@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bidlane-postgres
+    environment:
+      POSTGRES_USER: bidlane
+      POSTGRES_PASSWORD: bidlane
+      POSTGRES_DB: bidlane
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bidlane -d bidlane"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: bidlane-redis
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "PING"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bidlane-engine
+    environment:
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: "0"
+      AUCTION_ID: day1-demo-auction
+      CONSUMER_GROUP: cg:engine:shard:0
+      CONSUMER_NAME: engine-1
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
