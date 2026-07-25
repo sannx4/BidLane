@@ -45,6 +45,11 @@ type LedgerConsumerConfig struct {
 		redisstore.BidStreamEntry,
 		postgresstore.AppendBidResult,
 	)
+
+	BeforeAck func(
+		context.Context,
+		redisstore.BidStreamEntry,
+	) error
 }
 
 type LedgerConsumer struct {
@@ -298,6 +303,19 @@ func (c *LedgerConsumer) processEntries(
 				entry,
 				result,
 			)
+		}
+
+		if c.config.BeforeAck != nil {
+			if err := c.config.BeforeAck(
+				ctx,
+				entry,
+			); err != nil {
+				return processed, fmt.Errorf(
+					"before Redis XACK for entry %s: %w",
+					entry.ID,
+					err,
+				)
+			}
 		}
 
 		if err := c.streams.Ack(
