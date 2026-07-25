@@ -2,63 +2,109 @@ package engine
 
 import (
 	"context"
-	"errors"
-	"strings"
+	"fmt"
 
 	"github.com/google/uuid"
 
 	redisstore "example.com/bidlane/internal/store/redis"
 )
 
-// Service contains the bid-ingress use cases.
 type Service struct {
 	streams *redisstore.StreamStore
 }
 
-func NewService(streams *redisstore.StreamStore) *Service {
+func NewService(
+	streams *redisstore.StreamStore,
+) *Service {
 	return &Service{
 		streams: streams,
 	}
 }
 
-// ReserveBid appends one bid to the auction's Redis Stream.
-//
-// Day 1 responsibility:
-//   - perform basic shape validation
-//   - generate metadata
-//   - XADD the bid
-//   - return the Redis Stream ID
-//
-// It does NOT yet:
-//   - validate auction state
-//   - validate close time
-//   - validate deposit entitlement
-//   - validate bid increment
-//   - write to PostgreSQL
-//   - declare the bid accepted
+// ReserveBid represents a new logical bid.
+// It generates a new idempotency key automatically.
 func (s *Service) ReserveBid(
 	ctx context.Context,
 	auctionID string,
 	bidderID string,
 	amount int64,
 ) (string, error) {
-	if strings.TrimSpace(auctionID) == "" {
-		return "", errors.New("auctionID is required")
+	return s.reserveBid(
+		ctx,
+		auctionID,
+		bidderID,
+		amount,
+		uuid.NewString(),
+	)
+}
+
+// ReserveBidWithIdempotencyKey represents a retryable submission.
+//
+// The caller supplies the same idempotency key when retrying the
+// same logical bid.
+func (s *Service) ReserveBidWithIdempotencyKey(
+	ctx context.Context,
+	auctionID string,
+	bidderID string,
+	amount int64,
+	idempotencyKey string,
+) (string, error) {
+	if _, err := uuid.Parse(idempotencyKey); err != nil {
+		return "", fmt.Errorf(
+			"invalid idempotency key %q: %w",
+			idempotencyKey,
+			err,
+		)
 	}
 
-	if strings.TrimSpace(bidderID) == "" {
-		return "", errors.New("bidderID is required")
+	return s.reserveBid(
+		ctx,
+		auctionID,
+		bidderID,
+		amount,
+		idempotencyKey,
+	)
+}
+
+func (s *Service) reserveBid(
+	ctx context.Context,
+	auctionID string,
+	bidderID string,
+	amount int64,
+	idempotencyKey string,
+) (string, error) {
+	if auctionID == "" {
+		return "", fmt.Errorf(
+			"auction ID is required",
+		)
+	}
+
+	if bidderID == "" {
+		return "", fmt.Errorf(
+			"bidder ID is required",
+		)
 	}
 
 	if amount <= 0 {
-		return "", errors.New("amount must be greater than zero")
+		return "", fmt.Errorf(
+			"bid amount must be positive",
+		)
 	}
 
-	return s.streams.AppendBid(ctx, redisstore.BidIngress{
-		AuctionID:      auctionID,
-		BidderID:       bidderID,
-		Amount:         amount,
-		IdempotencyKey: uuid.NewString(),
-		CorrelationID:  uuid.NewString(),
-	})
+	if idempotencyKey == "" {
+		return "", fmt.Errorf(
+			"idempotency key is required",
+		)
+	}
+
+	return s.streams.AppendBid(
+		ctx,
+		redisstore.BidIngress{
+			AuctionID:      auctionID,
+			BidderID:       bidderID,
+			Amount:         amount,
+			IdempotencyKey: idempotencyKey,
+			CorrelationID:  uuid.NewString(),
+		},
+	)
 }
