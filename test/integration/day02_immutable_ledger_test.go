@@ -91,10 +91,14 @@ func TestDay02BidLedgerIsImmutableAtDatabaseLayer(
 	if _, err := appConn.Exec(
 		ctx,
 		`
-			INSERT INTO auctions (id)
-			VALUES ($1)
-		`,
+	INSERT INTO auctions (
+		id,
+		effective_close_time
+	)
+	VALUES ($1, $2)
+	`,
 		auctionID,
+		time.Now().UTC().Add(24*time.Hour),
 	); err != nil {
 		t.Fatalf(
 			"application role should be allowed to insert auction: %v",

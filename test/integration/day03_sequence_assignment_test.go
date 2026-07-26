@@ -87,10 +87,14 @@ func TestDay03OneThousandBidsReceiveGapFreeSequences(
 	if _, err := adminPool.Exec(
 		ctx,
 		`
-			INSERT INTO auctions (id)
-			VALUES ($1)
-		`,
+	INSERT INTO auctions (
+		id,
+		effective_close_time
+	)
+	VALUES ($1, $2)
+	`,
 		auctionID,
+		time.Now().UTC().Add(24*time.Hour),
 	); err != nil {
 		t.Fatalf(
 			"create Day 3 auction: %v",
