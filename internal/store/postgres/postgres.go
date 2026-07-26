@@ -77,6 +77,24 @@ func ConnectPool(
 			return nil
 		}
 
+	case "bidlane_outbox_relay":
+		config.AfterConnect = func(
+			ctx context.Context,
+			conn *pgx.Conn,
+		) error {
+			if _, err := conn.Exec(
+				ctx,
+				"SET ROLE bidlane_outbox_relay",
+			); err != nil {
+				return fmt.Errorf(
+					"assume bidlane_outbox_relay role: %w",
+					err,
+				)
+			}
+
+			return nil
+		}
+
 	default:
 		return nil, fmt.Errorf(
 			"unsupported PostgreSQL role %q",

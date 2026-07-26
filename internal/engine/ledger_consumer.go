@@ -305,6 +305,10 @@ func (c *LedgerConsumer) processEntries(
 			)
 		}
 
+		// Day 9 boundary:
+		//
+		// At this point PostgreSQL has already committed.
+		// Redis XACK has not yet happened.
 		if c.config.BeforeAck != nil {
 			if err := c.config.BeforeAck(
 				ctx,
@@ -518,6 +522,7 @@ func (c *LedgerConsumer) persistEntry(
 				Amount:         entry.Amount,
 				IdempotencyKey: idempotencyKey,
 				StreamEntryID:  entry.ID,
+				CorrelationID:  entry.CorrelationID,
 			},
 			submittedAt,
 		)

@@ -372,6 +372,23 @@ func (s *LedgerStore) AppendBidIdempotentWithAntiSnipe(
 			)
 	}
 
+	if err := insertBidAcceptedOutbox(
+		ctx,
+		tx,
+		bid,
+		insertedSequence,
+		submittedAt,
+		newCloseTime,
+		extended,
+		newExtensionCount,
+	); err != nil {
+		return AntiSnipeAppendResult{},
+			fmt.Errorf(
+				"append transactional outbox event: %w",
+				err,
+			)
+	}
+
 	// The bid, sequence counter and extension become visible
 	// together only after this commit succeeds.
 	if err := tx.Commit(ctx); err != nil {

@@ -17,6 +17,7 @@ type BidToPersist struct {
 	Amount         int64
 	IdempotencyKey uuid.UUID
 	StreamEntryID  string
+	CorrelationID  string
 }
 
 // AppendBidResult tells the consumer whether a new row was
