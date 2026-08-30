@@ -31,15 +31,3 @@ BidLane is being developed as a complete production-grade auction infrastructure
 
 ---
 
-# Why BidLane?
-
-A normal auction application might implement:
-
-```text
-User clicks Bid
-      ↓
-API receives request
-      ↓
-Database updates price
-      ↓
-UI displays new price
